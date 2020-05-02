@@ -1,0 +1,86 @@
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+  <link rel="stylesheet/less" type="text/css" href="index.less"/>
+  <script src="https://cdn.bootcss.com/less.js/3.10.3/less.min.js"></script>
+  <script src="https://cdn.bootcss.com/vue/2.6.11/vue.js"></script>
+  <script src="https://cdn.bootcss.com/axios/0.19.2/axios.min.js"></script>
+</head>
+<body>
+<div id="main" @keydown.left.stop="prevPage" @keydown.right.stop="nextPage" tabindex="-1" autofocus>
+  <div class="left">
+    <div v-for="category in tree">
+      <div><span class="category">{{category.label}}</span>{{category.children.length}}部</div>
+      <div v-for="book in category.children">
+        <span @click="clickSpan(book.url)" class="book" :class="{activeItem:book.url==activeUrl}">{{book.label}}</span>
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="content">
+      {{content}}
+    </div>
+    <div class="pager">
+      <div class="button" @click="prevPage">🡄</div>
+      <div class="button" @click="nextPage">🡆</div>
+    </div>
+  </div>
+</div>
+</body>
+<script>
+  new Vue({
+    el: "#main",
+    data() {
+      return {
+        content: "",
+        tree: [],
+        index: [],//url索引
+        activeUrl: "",
+      }
+    },
+    mounted() {
+      this.loadTree();
+      window.haha = this;
+    },
+    methods: {
+      loadTree() {
+        axios.get("/api/tree").then(resp => {
+          this.tree = resp.data;
+          this.index = [];
+          for (let category of this.tree) {
+            for (let book of category.children) {
+              this.index.push(book.url);
+            }
+          }
+        })
+      },
+      prevPage() {
+        let ind = this.index.indexOf(this.activeUrl);
+        if (ind > 0) {
+          this.clickSpan(this.index[ind - 1]);
+        }
+      },
+      nextPage() {
+        let ind = this.index.indexOf(this.activeUrl);
+        if (ind < this.index.length - 1) {
+          this.clickSpan(this.index[ind + 1]);
+        }
+      },
+      clickSpan(filepath) {
+        this.loadFile(filepath);
+      },
+      loadFile(filepath) {
+        axios.get("/api/get_file", {
+          params: {
+            filepath
+          }
+        }).then(resp => {
+          document.querySelector(".right").scrollTop = 0
+          this.activeUrl = filepath;
+          this.content = resp.data;
+        })
+      }
+    }
+  })
+</script>
+</html>
