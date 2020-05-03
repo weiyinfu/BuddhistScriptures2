@@ -1,0 +1,1 @@
+rsync --progress index* *.7z tencent:/home/ubuntu/app/BuddhistScriptures2/
