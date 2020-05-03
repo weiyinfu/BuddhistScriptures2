@@ -1,14 +1,15 @@
+import json
 import os
 import re
 from os.path import *
 
-from flask import Flask, jsonify, send_file, request
-
-root = "乾隆大藏经"
-app = Flask(__name__, static_folder=".", static_url_path="/")
+"""
+根据文件夹生成目录
+"""
 
 
 def get_tree(filepath):
+    # 返回树和树的位置权重
     if isdir(filepath):
         children = [get_tree(join(filepath, i)) for i in os.listdir(filepath)]
         children = sorted(children, key=lambda x: x[1])
@@ -22,20 +23,9 @@ def get_tree(filepath):
         if label.endswith(".txt"):
             label = label[:-4]
             label = re.sub("第\d+(-\d+)?部～", "", label)
-        return {'url': relpath(filepath, root), 'label': label}, k
+        return {'url': filepath, 'label': label}, k
 
 
-@app.route("/api/tree")
-def tree():
-    tree, _ = get_tree(root)
-    return jsonify(tree['children'])
-
-
-@app.route("/api/get_file")
-def get_file():
-    filepath = request.args['filepath']
-    return open(join(root, filepath)).read()
-
-
-if __name__ == '__main__':
-    app.run(port=5555, debug=True)
+root = "乾隆大藏经"
+tree, _ = get_tree(root)
+json.dump(tree['children'], open("index.json", 'w'), ensure_ascii=0, indent=2)

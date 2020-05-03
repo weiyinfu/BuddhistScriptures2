@@ -12,13 +12,12 @@
     <div v-for="category in tree">
       <div><span class="category">{{category.label}}</span>{{category.children.length}}部</div>
       <div v-for="book in category.children">
-        <span @click="clickSpan(book.url)" class="book" :class="{activeItem:book.url==activeUrl}">{{book.label}}</span>
+        <span @click="clickBook(book.url)" class="book" :class="{activeItem:book.url==activeUrl}">{{book.label}}</span>
       </div>
     </div>
   </div>
   <div class="right">
-    <div class="content">
-      {{content}}
+    <div class="content" v-html="renderedContent">
     </div>
     <div class="pager">
       <div class="button" @click="prevPage">🡄</div>
@@ -39,47 +38,103 @@
       }
     },
     mounted() {
-      this.loadTree();
       window.haha = this;
+      window.onpopstate = event => {
+        console.log(event.state);
+        if (event.state) {
+          console.log("loading")
+          this.loadFile(event.state);
+        }
+      }
+      axios.get("./index.json").then(resp => {
+        this.tree = resp.data;
+        this.index = [];
+        for (let category of this.tree) {
+          for (let book of category.children) {
+            this.index.push(book.url);
+          }
+        }
+        if (location.hash) {
+          this.clickBook(location.hash.slice(1));
+        } else {
+          let randIndex = Math.floor(this.index.length * Math.random())
+          this.clickBook(this.index[randIndex]);
+        }
+      })
+    },
+    computed: {
+      renderedContent() {
+        let lines = this.content.split("\n")
+        let titleIndex = -1;
+        let endIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+          let line = lines[i];
+          if (/^\S/.test(line) && titleIndex === -1) {
+            //如果不以空格开头
+            titleIndex = i;
+          }
+          if (/下一部：/.test(line) || /上一部：/.test(line)) {
+            endIndex = i;
+          }
+        }
+        for (let i = 0; i < lines.length; i++) {
+          let line = lines[i];
+          if (i < titleIndex) {
+            lines[i] = `<p class="desc">${line}</p>`
+          } else if (i >= endIndex) {
+            lines[i] = `<p class="desc">${line}</p>`
+          } else if (/^\S/.test(line)) {
+            lines[i] = `<h1>${line}</h1>`
+          } else {
+            lines[i] = `<p>${line}</p>`
+          }
+        }
+        return lines.join("")
+      },
+    },
+    watch: {
+      content() {
+        document.title = this.getTitle(this.content);
+      }
     },
     methods: {
-      loadTree() {
-        axios.get("/api/tree").then(resp => {
-          this.tree = resp.data;
-          this.index = [];
-          for (let category of this.tree) {
-            for (let book of category.children) {
-              this.index.push(book.url);
-            }
-          }
-        })
-      },
       prevPage() {
         let ind = this.index.indexOf(this.activeUrl);
         if (ind > 0) {
-          this.clickSpan(this.index[ind - 1]);
+          this.clickBook(this.index[ind - 1]);
         }
       },
       nextPage() {
         let ind = this.index.indexOf(this.activeUrl);
         if (ind < this.index.length - 1) {
-          this.clickSpan(this.index[ind + 1]);
+          this.clickBook(this.index[ind + 1]);
         }
       },
-      clickSpan(filepath) {
-        this.loadFile(filepath);
+      clickBook(filepath) {
+        history.pushState(filepath, filepath, '#' + filepath)
+        this.loadFile(filepath)
       },
       loadFile(filepath) {
-        axios.get("/api/get_file", {
-          params: {
-            filepath
-          }
-        }).then(resp => {
+        console.log(filepath)
+        axios.get('./' + filepath).then(resp => {
           document.querySelector(".right").scrollTop = 0
-          this.activeUrl = filepath;
+          this.activeUrl = decodeURI(filepath);
           this.content = resp.data;
         })
-      }
+      },
+      getTitle(content) {
+        let lines = content.split("\n")
+        let titleIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+          let line = lines[i];
+          if (/^\S/.test(line) && titleIndex === -1) {
+            //如果不以空格开头
+            titleIndex = i;
+          }
+        }
+        return lines[titleIndex];
+      },
+
     }
   })
 </script>
